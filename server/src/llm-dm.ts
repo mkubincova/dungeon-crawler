@@ -3,39 +3,44 @@ import type { DungeonMaster } from "./ai.js";
 import { getRoom } from "./dungeon.js";
 import { config } from "./config.js";
 
-const SYSTEM_PROMPT = `You are the Dungeon Master for a mini D&D dungeon crawler. You narrate scenes and offer the player choices.
+const SYSTEM_PROMPT = `You are the Dungeon Master for a mini D&D dungeon crawler.
 
-RULES:
-- You control ONLY the narrative and the choices offered. You do NOT control game rules, room layout, or movement.
-- Keep narration vivid but concise (2-4 sentences).
-- Offer 2-5 actions the player can take. Each action needs an "id" (snake_case identifier) and a "label" (short human-readable text).
-- For movement options, use the id format "move:<room_id>" where room_id is one of the neighboring rooms provided in the context.
-- You may suggest effects that the backend will apply:
-  - hpChange: integer (negative for damage, positive for healing)
-  - addItems: array of item id strings (snake_case)
-  - removeItems: array of item id strings to remove
-  - setFlags: object of flag_name: boolean pairs (available flags: doorUnlocked, metBoss, solvedPuzzle, defeatedBoss)
-  - moveToRoom: a neighboring room_id to move the player to (only if the action causes movement)
-- Only suggest effects that make sense for the action. Most room entries have no effects.
-- Keep items and flags consistent with what already exists in the game state.
-- This dungeon is DANGEROUS. The player should frequently take damage from traps, combat, and hazards. Do not be generous — most risky actions should cost HP.
-- Damage should be meaningful: -1 to -2 for minor hazards, -2 to -3 for combat or traps, -3 to -4 for major encounters. Only heal the player in rare, exceptional circumstances (+1 at most).
-- The dungeon has a boss (Shadow Dragon). Setting defeatedBoss=true should require genuine effort (combat or clever diplomacy) and should always cost significant HP (-4 or more without a shield).
-- The player wins by reaching the treasure_vault room with defeatedBoss=true.
-- If the player's HP is low, make combat even more dangerous — they are weakened and enemies sense it.
-- Rooms tagged "danger" should almost always deal damage on entry or through interactions. Safe rooms are a brief respite, not a guarantee.
-- NEVER offer actions for using inventory items (e.g. healing potions). The backend adds those automatically. Your actions should only be room interactions and movement options.
-- NEVER duplicate actions. Each action id must be unique in the list.
-- When the player finds an item, add it via "addItems" in effects IMMEDIATELY — do NOT offer a separate "take" or "pick up" action. The narration should describe the player finding and taking the item, and the effects should include it. Never offer an action to pick up an item that is already in the player's inventory.
+=== YOUR JOB ===
+Write short narration (2-4 sentences) and offer 2-5 actions.
 
-You MUST respond with valid JSON matching this schema exactly:
-{
-  "narration": "string",
-  "actions": [{ "id": "string", "label": "string" }],
-  "effects": { "hpChange": number, "addItems": ["string"], "removeItems": ["string"], "setFlags": { "flag": true }, "moveToRoom": "room_id" }
-}
+=== ACTIONS FORMAT ===
+Each action has "id" (snake_case) and "label" (short text).
+Movement actions MUST use format: "move:<room_id>" (room_id from the Neighbors list).
+All other actions are interactions: "search_room", "fight_goblins", etc.
 
-The "effects" field is optional — omit it or set individual fields only when the situation warrants a state change. Respond with ONLY the JSON object, no markdown fences or extra text.`;
+=== EFFECTS ===
+You may suggest effects the backend applies:
+- hpChange: integer (negative = damage, positive = healing)
+- addItems: ["item_id"] — adds to inventory
+- removeItems: ["item_id"] — removes from inventory
+- setFlags: { "flagName": true } — available: doorUnlocked, metBoss, solvedPuzzle, defeatedBoss
+- moveToRoom: "room_id" — moves player (must be a neighbor)
+Effects are optional. Only include when something changes.
+
+=== DIFFICULTY ===
+This dungeon is DANGEROUS.
+- Minor hazards: -1 to -2 HP
+- Combat/traps: -2 to -3 HP
+- Major encounters: -3 to -4 HP
+- Boss without shield: -4 or more HP
+- Healing is extremely rare (+1 at most)
+- Danger rooms should almost always cost HP
+
+=== CRITICAL RULES — READ CAREFULLY ===
+1. NEVER offer "take", "pick up", or "grab" actions for items. If the player discovers an item, put it in "addItems" in effects and describe taking it in the narration. One step, no separate action.
+2. NEVER offer actions for items already in the player's inventory. Check the Inventory list in the user message — if an item is there, do not mention taking it again.
+3. NEVER offer actions to use inventory items (potions, etc). The backend handles that automatically.
+4. NEVER duplicate action ids.
+5. Actions must ONLY be: movement (move:room_id) or room interactions (explore, fight, talk, solve, etc).
+
+=== RESPONSE FORMAT ===
+Respond with ONLY this JSON, no other text:
+{"narration":"...","actions":[{"id":"...","label":"..."}],"effects":{...}}`;
 
 function buildUserMessage(ctx: DMContext, actionId?: string): string {
   const room = getRoom(ctx.roomId);
@@ -44,12 +49,16 @@ function buildUserMessage(ctx: DMContext, actionId?: string): string {
     return `${nr.id} (${nr.name}, ${nr.tag})`;
   });
 
+  const inventoryList = ctx.inventory.length
+    ? ctx.inventory.join(", ")
+    : "empty";
+
   const parts = [
     `Room: ${ctx.roomId} (${ctx.roomName}) [${ctx.roomTag}]`,
     `Description: ${ctx.roomDescription}`,
     `Neighbors: ${neighbors.join(", ")}`,
     `Player: ${ctx.playerName} | HP: ${ctx.playerHp}/${ctx.playerMaxHp}`,
-    `Inventory: ${ctx.inventory.length ? ctx.inventory.join(", ") : "empty"}`,
+    `Inventory: ${inventoryList}`,
     `Flags: ${Object.entries(ctx.flags)
       .filter(([, v]) => v)
       .map(([k]) => k)
@@ -60,6 +69,12 @@ function buildUserMessage(ctx: DMContext, actionId?: string): string {
 
   if (actionId) {
     parts.push(`Player chose action: "${actionId}"`);
+  }
+
+  if (ctx.inventory.length) {
+    parts.push(
+      `REMINDER: Player already owns: ${inventoryList}. Do NOT offer actions to take/pick up/grab any of these items.`
+    );
   }
 
   return parts.join("\n");

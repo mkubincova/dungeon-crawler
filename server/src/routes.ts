@@ -58,7 +58,7 @@ router.post("/game/start", async (req: Request, res: Response) => {
   }
 
   // Add healing potion action if player has one
-  const actions = maybeAddPotionAction(dmResponse.actions, state.inventory);
+  const actions = sanitizeActions(dmResponse.actions, state.inventory);
 
   const response: StartGameResponse = {
     gameState: state,
@@ -110,7 +110,7 @@ router.post("/game/action", async (req: Request, res: Response) => {
       applyEffects(state, dmResponse.effects);
     }
 
-    const actions = maybeAddPotionAction(dmResponse.actions, state.inventory);
+    const actions = sanitizeActions(dmResponse.actions, state.inventory);
 
     const response: ActionResponse = {
       gameState: state,
@@ -135,7 +135,7 @@ router.post("/game/action", async (req: Request, res: Response) => {
     // Re-enter the current room to get fresh actions
     const ctx = buildContext(state, "The player just used a healing potion.");
     const dmResponse = await dm.enterRoom(ctx);
-    const actions = maybeAddPotionAction(dmResponse.actions, state.inventory);
+    const actions = sanitizeActions(dmResponse.actions, state.inventory);
 
     const response: ActionResponse = { gameState: state, narration, actions };
     res.json(response);
@@ -179,7 +179,7 @@ router.post("/game/action", async (req: Request, res: Response) => {
     }
   }
 
-  actions = maybeAddPotionAction(actions, state.inventory);
+  actions = sanitizeActions(actions, state.inventory);
 
   const response: ActionResponse = {
     gameState: state,
@@ -204,14 +204,22 @@ router.get("/dungeon", (_req: Request, res: Response) => {
   res.json(DUNGEON);
 });
 
-function maybeAddPotionAction(
+function sanitizeActions(
   actions: DMAction[],
   inventory: string[]
 ): DMAction[] {
-  // Strip any potion-related actions the LLM may have generated
-  const filtered = actions.filter(
-    (a) => !a.id.includes("potion") && !a.id.includes("healing")
-  );
+  const takePatterns = /^(take|pick_up|grab|collect|loot)_/;
+
+  let filtered = actions.filter((a) => {
+    // Strip potion/healing actions (server handles these)
+    if (a.id.includes("potion") || a.id.includes("healing")) return false;
+    // Strip "take X" actions for items already in inventory
+    if (takePatterns.test(a.id)) {
+      const itemPart = a.id.replace(takePatterns, "");
+      if (inventory.includes(itemPart)) return false;
+    }
+    return true;
+  });
 
   if (inventory.includes("healing_potion")) {
     filtered.push({
