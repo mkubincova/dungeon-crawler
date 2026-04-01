@@ -204,13 +204,13 @@ router.get("/dungeon", (_req: Request, res: Response) => {
   res.json(DUNGEON);
 });
 
-function sanitizeActions(
+export function sanitizeActions(
   actions: DMAction[],
   inventory: string[]
 ): DMAction[] {
   const takePatterns = /^(take|pick_up|grab|collect|loot)_/;
 
-  let filtered = actions.filter((a) => {
+  const filtered = actions.filter((a) => {
     // Strip potion/healing actions (server handles these)
     if (a.id.includes("potion") || a.id.includes("healing")) return false;
     // Strip "take X" actions for items already in inventory

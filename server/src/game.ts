@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import type { GameState, GameFlags, DMEffects } from "../../shared/types.js";
-import { START_ROOM, GOAL_ROOM, getRoom, areNeighbors } from "./dungeon.js";
+import type { GameState, DMEffects } from "../../shared/types.js";
+import { START_ROOM, GOAL_ROOM, areNeighbors } from "./dungeon.js";
 
 // In-memory store (single-player, Phase 1)
 const games = new Map<string, GameState>();
