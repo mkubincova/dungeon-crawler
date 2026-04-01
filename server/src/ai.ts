@@ -40,11 +40,13 @@ function getRoomEntry(ctx: DMContext, firstVisit: boolean): DMResponse {
 
     case "torch_corridor":
       return {
-        narration: `The Torch Corridor stretches ahead, lined with ancient torches that flicker with an unnatural blue flame. ${ctx.playerName}'s footsteps echo against the stone.`,
+        narration: firstVisit
+          ? `The Torch Corridor stretches ahead, lined with sputtering torches. ${ctx.playerName} spots pressure plates on the floor and tiny dart holes in the walls. One wrong step could be painful.`
+          : `The Torch Corridor is still treacherous. Spent darts litter the floor, but more traps surely remain.`,
         actions: [
           { id: "move:entrance", label: "Go back to the Entrance Hall" },
-          { id: "move:puzzle_chamber", label: "Continue to the Puzzle Chamber" },
-          { id: "examine_torches", label: "Examine the blue torches" },
+          { id: "dash_through", label: "Sprint through the corridor" },
+          { id: "careful_advance", label: "Carefully pick your way through" },
         ],
       };
 
@@ -184,30 +186,45 @@ function getActionOutcome(ctx: DMContext, actionId: string): DMResponse {
       };
 
     // Torch Corridor
-    case "examine_torches":
+    case "dash_through":
       return {
-        narration: `The blue flames aren't hot — they're cold to the touch. Ancient preservation magic. One torch has a healing rune carved into its base. Its warmth flows into you.`,
+        narration: `${ctx.playerName} sprints down the corridor! Darts whistle past — one catches your shoulder, another grazes your leg. You stumble into the Puzzle Chamber, bleeding.`,
+        actions: [],
+        effects: { hpChange: -2, moveToRoom: "puzzle_chamber" },
+      };
+
+    case "careful_advance":
+      if (Math.random() > 0.5) {
+        return {
+          narration: `${ctx.playerName} moves slowly, testing each stone before stepping. You spot a pressure plate just in time and step over it. Safe — for now.`,
+          actions: [
+            { id: "move:puzzle_chamber", label: "Continue to the Puzzle Chamber" },
+          ],
+        };
+      }
+      return {
+        narration: `${ctx.playerName} carefully picks a path through the corridor, but a hidden plate clicks underfoot. A volley of darts slams into you!`,
         actions: [
-          { id: "move:entrance", label: "Go back" },
-          { id: "move:puzzle_chamber", label: "Continue forward" },
+          { id: "move:puzzle_chamber", label: "Push on to the Puzzle Chamber" },
+          { id: "move:entrance", label: "Stagger back to the Entrance" },
         ],
-        effects: { hpChange: 2 },
+        effects: { hpChange: -1 },
       };
 
     // Goblin Den
     case "fight_goblins":
       return {
-        narration: `${ctx.playerName} charges into battle! The goblins fight fiercely, scratching and biting, but you prevail. You're wounded but victorious. The path to the Armory is now clear.`,
+        narration: `${ctx.playerName} charges into battle! The goblins swarm you — one slashes your arm, another bites your leg. You cut them down, but you're badly wounded.`,
         actions: [
           { id: "move:entrance", label: "Return to the Entrance" },
           { id: "move:armory", label: "Proceed to the Armory" },
           { id: "search_den", label: "Search the goblin den" },
         ],
-        effects: { hpChange: -3 },
+        effects: { hpChange: -4 },
       };
 
     case "sneak_past":
-      if (Math.random() > 0.4) {
+      if (Math.random() > 0.5) {
         return {
           narration: `${ctx.playerName} moves like a shadow, slipping past the distracted goblins undetected. You reach the far passage safely.`,
           actions: [
@@ -217,12 +234,12 @@ function getActionOutcome(ctx: DMContext, actionId: string): DMResponse {
         };
       }
       return {
-        narration: `A goblin spots you! "THERE!" They swarm you with crude daggers. You fight them off, but take some hits.`,
+        narration: `A goblin spots you! "THERE!" They swarm you with crude daggers. You fight them off, but take serious hits.`,
         actions: [
           { id: "move:armory", label: "Push through to the Armory" },
           { id: "move:entrance", label: "Retreat to the Entrance" },
         ],
-        effects: { hpChange: -2 },
+        effects: { hpChange: -3 },
       };
 
     case "search_den":
@@ -301,32 +318,32 @@ function getActionOutcome(ctx: DMContext, actionId: string): DMResponse {
         };
       }
       return {
-        narration: `${ctx.playerName} plunges into the icy current. The river batters you against the rocks before you manage to drag yourself to the other side, bruised and battered.`,
+        narration: `${ctx.playerName} plunges into the icy current. The river slams you against jagged rocks — you nearly drown before dragging yourself to the far bank, gasping and bleeding.`,
         actions: [
           { id: "move:boss_lair", label: "Head to the Boss Lair" },
           { id: "move:puzzle_chamber", label: "Go to the Puzzle Chamber" },
         ],
-        effects: { hpChange: -3 },
+        effects: { hpChange: -4 },
       };
 
     // Boss Lair
     case "fight_boss":
-      if (ctx.inventory.includes("iron_shield") && ctx.playerHp > 3) {
+      if (ctx.inventory.includes("iron_shield") && ctx.playerHp > 4) {
         return {
-          narration: `An epic battle ensues! ${ctx.playerName} dodges jets of shadow flame, shield raised against the darkness. With a mighty blow, you strike the dragon's weak point! The creature roars and dissolves into shadow. Victory!`,
+          narration: `An epic battle ensues! ${ctx.playerName} dodges jets of shadow flame, shield raised against the darkness. The dragon's claws tear through your defenses, but you land a devastating blow. The creature roars and dissolves into shadow. Victory — but at a cost.`,
           actions: [
             { id: "move:treasure_vault", label: "Enter the Treasure Vault!" },
           ],
-          effects: { hpChange: -3, setFlags: { defeatedBoss: true } },
+          effects: { hpChange: -4, setFlags: { defeatedBoss: true } },
         };
       }
-      if (ctx.playerHp > 5) {
+      if (ctx.playerHp > 6) {
         return {
-          narration: `${ctx.playerName} fights bravely against the Shadow Dragon! Without proper protection, you take heavy damage, but your determination prevails. The dragon crumbles to shadow!`,
+          narration: `${ctx.playerName} fights the Shadow Dragon without protection! Its claws and shadow fire ravage you. Through sheer will, you land a killing blow — but you can barely stand.`,
           actions: [
             { id: "move:treasure_vault", label: "Enter the Treasure Vault!" },
           ],
-          effects: { hpChange: -5, setFlags: { defeatedBoss: true } },
+          effects: { hpChange: -6, setFlags: { defeatedBoss: true } },
         };
       }
       return {

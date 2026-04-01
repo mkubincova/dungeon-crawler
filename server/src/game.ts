@@ -9,7 +9,7 @@ export function createGame(playerName: string): GameState {
   const state: GameState = {
     id: randomUUID(),
     currentRoomId: START_ROOM,
-    player: { name: playerName || "Adventurer", hp: 10, maxHp: 10 },
+    player: { name: playerName || "Adventurer", hp: 8, maxHp: 8 },
     inventory: [],
     flags: {
       doorUnlocked: false,

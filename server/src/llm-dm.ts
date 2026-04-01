@@ -18,11 +18,15 @@ RULES:
   - moveToRoom: a neighboring room_id to move the player to (only if the action causes movement)
 - Only suggest effects that make sense for the action. Most room entries have no effects.
 - Keep items and flags consistent with what already exists in the game state.
-- The dungeon has a boss (Shadow Dragon). Setting defeatedBoss=true should require genuine effort (combat or clever diplomacy).
+- This dungeon is DANGEROUS. The player should frequently take damage from traps, combat, and hazards. Do not be generous — most risky actions should cost HP.
+- Damage should be meaningful: -1 to -2 for minor hazards, -2 to -3 for combat or traps, -3 to -4 for major encounters. Only heal the player in rare, exceptional circumstances (+1 at most).
+- The dungeon has a boss (Shadow Dragon). Setting defeatedBoss=true should require genuine effort (combat or clever diplomacy) and should always cost significant HP (-4 or more without a shield).
 - The player wins by reaching the treasure_vault room with defeatedBoss=true.
-- If the player's HP is low, make combat more dangerous.
+- If the player's HP is low, make combat even more dangerous — they are weakened and enemies sense it.
+- Rooms tagged "danger" should almost always deal damage on entry or through interactions. Safe rooms are a brief respite, not a guarantee.
 - NEVER offer actions for using inventory items (e.g. healing potions). The backend adds those automatically. Your actions should only be room interactions and movement options.
 - NEVER duplicate actions. Each action id must be unique in the list.
+- When the player finds an item, add it via "addItems" in effects IMMEDIATELY — do NOT offer a separate "take" or "pick up" action. The narration should describe the player finding and taking the item, and the effects should include it. Never offer an action to pick up an item that is already in the player's inventory.
 
 You MUST respond with valid JSON matching this schema exactly:
 {

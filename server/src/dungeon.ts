@@ -25,10 +25,10 @@ const rooms: Room[] = [
   {
     id: "torch_corridor",
     name: "Torch Corridor",
-    tag: "safe",
+    tag: "danger",
     neighbors: ["entrance", "puzzle_chamber"],
     description:
-      "A long hallway lined with flickering torches. The air smells of old smoke.",
+      "A long hallway lined with flickering torches. Pressure plates line the floor and dart holes dot the walls.",
   },
   {
     id: "goblin_den",

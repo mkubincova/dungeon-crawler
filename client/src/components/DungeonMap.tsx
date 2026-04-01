@@ -30,12 +30,16 @@ export const TAG_COLORS: Record<string, string> = {
   goal:   "#ccaa55",
 };
 
-const TAG_ICONS: Record<string, string> = {
-  safe:   "\u{1F6E1}",  // shield
-  puzzle: "\u{1F9E9}",  // puzzle piece
-  danger: "\u{1F480}",  // skull
-  boss:   "\u{1F432}",  // dragon
-  goal:   "\u{1F451}",  // crown
+// Per-room icons for the fixed dungeon layout
+export const ROOM_ICONS: Record<string, string> = {
+  entrance:          "\u{1F6AA}",  // door
+  torch_corridor:    "\u{1F525}",  // fire
+  goblin_den:        "\u{1F47A}",  // goblin
+  puzzle_chamber:    "\u{1F9E9}",  // puzzle piece
+  armory:            "\u{1F6E1}",  // shield
+  underground_river: "\u{1F30A}",  // water wave
+  boss_lair:         "\u{1F432}",  // dragon
+  treasure_vault:    "\u{1F451}",  // crown
 };
 
 export function DungeonMapView({ dungeonMap, gameState }: Props) {
@@ -115,7 +119,7 @@ export function DungeonMapView({ dungeonMap, gameState }: Props) {
               r.neighbors.includes(room.id)
           );
           const color = TAG_COLORS[room.tag] || "#888";
-          const icon = TAG_ICONS[room.tag] || "?";
+          const icon = ROOM_ICONS[room.id] || "?";
           const tileSize = 36;
 
           if (!isVisited && !isAdjacent) {

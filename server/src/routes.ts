@@ -127,9 +127,9 @@ router.post("/game/action", async (req: Request, res: Response) => {
       res.status(400).json({ error: "No healing potion in inventory" });
       return;
     }
-    applyEffects(state, { hpChange: 4, removeItems: ["healing_potion"] });
+    applyEffects(state, { hpChange: 2, removeItems: ["healing_potion"] });
 
-    const narration = `${state.player.name} drinks the healing potion. A warm sensation spreads through your body as wounds close. (+4 HP)`;
+    const narration = `${state.player.name} drinks the healing potion. It's old and weak, but takes the edge off. (+2 HP)`;
     state.turnLog.push({ roomId: state.currentRoomId, narration, chosenAction: actionId });
 
     // Re-enter the current room to get fresh actions
@@ -216,7 +216,7 @@ function maybeAddPotionAction(
   if (inventory.includes("healing_potion")) {
     filtered.push({
       id: "use_healing_potion",
-      label: "Drink healing potion (+4 HP)",
+      label: "Drink healing potion (+2 HP)",
     });
   }
 
