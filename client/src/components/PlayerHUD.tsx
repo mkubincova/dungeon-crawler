@@ -32,11 +32,11 @@ export function PlayerHUD({ gameState }: Props) {
         </span>
         <div className="hp-bar-bg">
           <div
-            className="hp-bar"
+            className={`hp-bar${hpPercent <= 25 ? " critical" : ""}`}
             style={{
               width: `${hpPercent}%`,
               backgroundColor:
-                hpPercent > 50 ? "#4a2" : hpPercent > 25 ? "#ca2" : "#c22",
+                hpPercent > 50 ? "#3a8a45" : hpPercent > 25 ? "#b89a30" : "#b83a3a",
             }}
           />
         </div>

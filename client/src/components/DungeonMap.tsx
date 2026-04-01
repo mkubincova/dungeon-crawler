@@ -11,11 +11,11 @@ const CELL = 120;
 const PAD = 36;
 
 export const TAG_COLORS: Record<string, string> = {
-  safe:   "#33aa77",
-  puzzle: "#7777cc",
-  danger: "#cc5555",
-  boss:   "#aa33aa",
-  goal:   "#ccaa55",
+  safe:   "#3a9a60",
+  puzzle: "#7b5ea7",
+  danger: "#b83a3a",
+  boss:   "#9a2d6e",
+  goal:   "#d4a847",
 };
 
 export function getThemeIcons(themeId: ThemeId): Record<string, string> {
@@ -56,7 +56,7 @@ export function DungeonMapView({ dungeonMap, gameState, themeId }: Props) {
       <svg viewBox={`0 0 ${svgW} ${svgH}`} width="100%" height="100%">
         <defs>
           <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -65,7 +65,19 @@ export function DungeonMapView({ dungeonMap, gameState, themeId }: Props) {
           <filter id="fog">
             <feGaussianBlur stdDeviation="1.5" />
           </filter>
+          <filter id="innerShadow">
+            <feOffset dx="0" dy="1" />
+            <feGaussianBlur stdDeviation="1" result="shadow" />
+            <feComposite in="SourceGraphic" in2="shadow" operator="over" />
+          </filter>
+          <radialGradient id="ambientGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="rgba(212,168,71,0.06)" />
+            <stop offset="100%" stopColor="transparent" />
+          </radialGradient>
         </defs>
+
+        {/* Ambient background glow */}
+        <rect x="0" y="0" width={svgW} height={svgH} fill="url(#ambientGlow)" />
 
         {/* Corridors */}
         {edges.map(([a, b]) => {
@@ -83,10 +95,11 @@ export function DungeonMapView({ dungeonMap, gameState, themeId }: Props) {
               y1={pa.cy}
               x2={pb.cx}
               y2={pb.cy}
-              stroke={bothVisited ? "#445" : "#2a2a3a"}
+              stroke={bothVisited ? "#4a3d28" : "#1a1510"}
               strokeWidth={bothVisited ? 4 : 2}
               strokeLinecap="round"
-              opacity={eitherVisited ? 0.8 : 0.25}
+              strokeDasharray={bothVisited ? "none" : "4 4"}
+              opacity={eitherVisited ? 0.9 : 0.2}
             />
           );
         })}
@@ -108,19 +121,18 @@ export function DungeonMapView({ dungeonMap, gameState, themeId }: Props) {
           const tileSize = 36;
 
           if (!isVisited && !isAdjacent) {
-            // Completely hidden
+            // Completely hidden — dark stone
             return (
-              <g key={room.id}>
+              <g key={room.id} opacity={0.3}>
                 <rect
                   x={c.cx - tileSize}
                   y={c.cy - tileSize}
                   width={tileSize * 2}
                   height={tileSize * 2}
-                  rx={6}
-                  fill="#1a1a28"
-                  stroke="#252535"
+                  rx={3}
+                  fill="#0d0a07"
+                  stroke="#1a1510"
                   strokeWidth={1}
-                  opacity={0.4}
                 />
               </g>
             );
@@ -135,18 +147,19 @@ export function DungeonMapView({ dungeonMap, gameState, themeId }: Props) {
                   y={c.cy - tileSize}
                   width={tileSize * 2}
                   height={tileSize * 2}
-                  rx={6}
-                  fill="#222238"
-                  stroke="#333350"
+                  rx={3}
+                  fill="#1a1510"
+                  stroke="#2a231a"
                   strokeWidth={1.5}
-                  opacity={0.7}
+                  opacity={0.8}
                 />
                 <text
                   x={c.cx}
                   y={c.cy + 5}
                   textAnchor="middle"
-                  fill="#555"
-                  fontSize={18}
+                  fill="#5a4a35"
+                  fontSize={16}
+                  fontFamily="Cinzel, serif"
                 >
                   ?
                 </text>
@@ -179,10 +192,10 @@ export function DungeonMapView({ dungeonMap, gameState, themeId }: Props) {
                 y={c.cy - tileSize}
                 width={tileSize * 2}
                 height={tileSize * 2}
-                rx={6}
-                fill={isCurrent ? color : "#2a2a40"}
-                fillOpacity={isCurrent ? 0.25 : 0.9}
-                stroke={isCurrent ? color : "#3a3a55"}
+                rx={3}
+                fill={isCurrent ? color : "#1e1914"}
+                fillOpacity={isCurrent ? 0.2 : 0.95}
+                stroke={isCurrent ? color : "#2a231a"}
                 strokeWidth={isCurrent ? 2.5 : 1.5}
               />
 
@@ -202,9 +215,11 @@ export function DungeonMapView({ dungeonMap, gameState, themeId }: Props) {
                 x={c.cx}
                 y={c.cy + tileSize + 18}
                 textAnchor="middle"
-                fill={isCurrent ? "#eee" : "#888"}
+                fill={isCurrent ? "#e0d5c4" : "#6a6050"}
                 fontSize={9}
                 fontWeight={isCurrent ? "bold" : "normal"}
+                fontFamily="Cinzel, serif"
+                letterSpacing="0.5"
               >
                 {room.name}
               </text>
