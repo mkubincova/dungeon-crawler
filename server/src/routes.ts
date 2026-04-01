@@ -121,6 +121,27 @@ router.post("/game/action", async (req: Request, res: Response) => {
     return;
   }
 
+  // Handle healing potion directly (server-injected action, not AI-managed)
+  if (actionId === "use_healing_potion") {
+    if (!state.inventory.includes("healing_potion")) {
+      res.status(400).json({ error: "No healing potion in inventory" });
+      return;
+    }
+    applyEffects(state, { hpChange: 4, removeItems: ["healing_potion"] });
+
+    const narration = `${state.player.name} drinks the healing potion. A warm sensation spreads through your body as wounds close. (+4 HP)`;
+    state.turnLog.push({ roomId: state.currentRoomId, narration, chosenAction: actionId });
+
+    // Re-enter the current room to get fresh actions
+    const ctx = buildContext(state, "The player just used a healing potion.");
+    const dmResponse = await dm.enterRoom(ctx);
+    const actions = maybeAddPotionAction(dmResponse.actions, state.inventory);
+
+    const response: ActionResponse = { gameState: state, narration, actions };
+    res.json(response);
+    return;
+  }
+
   // Handle non-movement actions
   const ctx = buildContext(state, `The player chose: "${actionId}".`);
   const dmResponse = await dm.handleAction(ctx, actionId);

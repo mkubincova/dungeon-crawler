@@ -4,12 +4,12 @@ interface Props {
   gameState: GameState;
 }
 
-const ITEM_LABELS: Record<string, string> = {
-  rune_fragment: "Rune Fragment",
-  iron_shield: "Iron Shield",
-  healing_potion: "Healing Potion",
-  crown_of_ages: "Crown of Ages",
-};
+function formatItemName(id: string): string {
+  return id
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 const FLAG_LABELS: Record<string, string> = {
   solvedPuzzle: "Puzzle Solved",
@@ -49,7 +49,7 @@ export function PlayerHUD({ gameState }: Props) {
         ) : (
           <ul>
             {inventory.map((item) => (
-              <li key={item}>{ITEM_LABELS[item] || item}</li>
+              <li key={item}>{formatItemName(item)}</li>
             ))}
           </ul>
         )}

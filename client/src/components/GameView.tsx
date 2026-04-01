@@ -5,6 +5,7 @@ import { DungeonMapView } from "./DungeonMap.js";
 import { NarrationLog } from "./NarrationLog.js";
 import { ActionPanel } from "./ActionPanel.js";
 import { PlayerHUD } from "./PlayerHUD.js";
+import { CurrentRoomCard } from "./CurrentRoomCard.js";
 
 interface Props {
   gameState: GameState;
@@ -42,15 +43,23 @@ export function GameView({
   }
 
   const isGameOver = gameState.status !== "playing";
+  const currentRoom = dungeonMap[gameState.currentRoomId];
 
   return (
     <div className="game-view">
       <div className="game-sidebar">
         <PlayerHUD gameState={gameState} />
-        <DungeonMapView dungeonMap={dungeonMap} gameState={gameState} />
+        {currentRoom && <CurrentRoomCard room={currentRoom} />}
       </div>
       <div className="game-main">
-        <NarrationLog turnLog={gameState.turnLog} currentNarration={narration} />
+        <div className="game-content">
+          <div className="game-map-panel">
+            <DungeonMapView dungeonMap={dungeonMap} gameState={gameState} />
+          </div>
+          <div className="game-narration-panel">
+            <NarrationLog turnLog={gameState.turnLog} currentNarration={narration} />
+          </div>
+        </div>
         {isGameOver ? (
           <div className="game-over">
             <h2>{gameState.status === "won" ? "Victory!" : "Defeat..."}</h2>
