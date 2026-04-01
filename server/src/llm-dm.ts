@@ -2,8 +2,14 @@ import type { DMContext, DMResponse } from "../../shared/types.js";
 import type { DungeonMaster } from "./ai.js";
 import { getRoom } from "./dungeon.js";
 import { config } from "./config.js";
+import { getTheme } from "../../shared/themes/index.js";
 
-const SYSTEM_PROMPT = `You are the Dungeon Master for a mini D&D dungeon crawler.
+function buildSystemPrompt(themeId: string): string {
+  const theme = getTheme(themeId);
+  return `You are the ${theme.dmTitle} for a mini adventure game.
+
+=== SETTING ===
+${theme.promptFlavor}
 
 === YOUR JOB ===
 Write short narration (2-4 sentences) and offer 2-5 actions.
@@ -23,7 +29,7 @@ You may suggest effects the backend applies:
 Effects are optional. Only include when something changes.
 
 === DIFFICULTY ===
-This dungeon is DANGEROUS.
+This adventure is DANGEROUS.
 - Minor hazards: -1 to -2 HP
 - Combat/traps: -2 to -3 HP
 - Major encounters: -3 to -4 HP
@@ -41,11 +47,12 @@ This dungeon is DANGEROUS.
 === RESPONSE FORMAT ===
 Respond with ONLY this JSON, no other text:
 {"narration":"...","actions":[{"id":"...","label":"..."}],"effects":{...}}`;
+}
 
 function buildUserMessage(ctx: DMContext, actionId?: string): string {
-  const room = getRoom(ctx.roomId);
+  const room = getRoom(ctx.themeId, ctx.roomId);
   const neighbors = room.neighbors.map((n) => {
-    const nr = getRoom(n);
+    const nr = getRoom(ctx.themeId, n);
     return `${nr.id} (${nr.name}, ${nr.tag})`;
   });
 
@@ -123,7 +130,7 @@ async function callLLM(messages: Array<{ role: string; content: string }>): Prom
 export class LLMDungeonMaster implements DungeonMaster {
   async enterRoom(ctx: DMContext): Promise<DMResponse> {
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: buildSystemPrompt(ctx.themeId) },
       {
         role: "user",
         content: buildUserMessage(ctx),
@@ -134,7 +141,7 @@ export class LLMDungeonMaster implements DungeonMaster {
 
   async handleAction(ctx: DMContext, actionId: string): Promise<DMResponse> {
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: buildSystemPrompt(ctx.themeId) },
       {
         role: "user",
         content: buildUserMessage(ctx, actionId),

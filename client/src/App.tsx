@@ -4,6 +4,7 @@ import type {
   DMAction,
   DungeonMap,
 } from "../../shared/types.js";
+import type { ThemeId } from "../../shared/themes/index.js";
 import { LandingPage } from "./components/LandingPage.js";
 import { GameView } from "./components/GameView.js";
 
@@ -12,17 +13,20 @@ export default function App() {
   const [narration, setNarration] = useState("");
   const [actions, setActions] = useState<DMAction[]>([]);
   const [dungeonMap, setDungeonMap] = useState<DungeonMap | null>(null);
+  const [themeId, setThemeId] = useState<ThemeId>("dungeon");
 
   function handleGameStarted(
     state: GameState,
     narr: string,
     acts: DMAction[],
-    map: DungeonMap
+    map: DungeonMap,
+    theme: ThemeId
   ) {
     setGameState(state);
     setNarration(narr);
     setActions(acts);
     setDungeonMap(map);
+    setThemeId(theme);
   }
 
   function handleActionResult(
@@ -52,6 +56,7 @@ export default function App() {
       narration={narration}
       actions={actions}
       dungeonMap={dungeonMap!}
+      themeId={themeId}
       onActionResult={handleActionResult}
       onRestart={handleRestart}
     />

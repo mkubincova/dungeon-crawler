@@ -1,14 +1,17 @@
 import { randomUUID } from "crypto";
 import type { GameState, DMEffects } from "../../shared/types.js";
-import { START_ROOM, GOAL_ROOM, areNeighbors } from "./dungeon.js";
+import { getTheme } from "../../shared/themes/index.js";
+import { areNeighbors } from "./dungeon.js";
 
 // In-memory store (single-player, Phase 1)
 const games = new Map<string, GameState>();
 
-export function createGame(playerName: string): GameState {
+export function createGame(playerName: string, themeId: string = "dungeon"): GameState {
+  const theme = getTheme(themeId);
   const state: GameState = {
     id: randomUUID(),
-    currentRoomId: START_ROOM,
+    theme: theme.id,
+    currentRoomId: theme.startRoom,
     player: { name: playerName || "Adventurer", hp: 8, maxHp: 8 },
     inventory: [],
     flags: {
@@ -17,7 +20,7 @@ export function createGame(playerName: string): GameState {
       solvedPuzzle: false,
       defeatedBoss: false,
     },
-    visitedRooms: [START_ROOM],
+    visitedRooms: [theme.startRoom],
     turnLog: [],
     status: "playing",
   };
@@ -57,7 +60,7 @@ export function applyEffects(state: GameState, effects: DMEffects): void {
 
   if (effects.moveToRoom) {
     const target = effects.moveToRoom;
-    if (areNeighbors(state.currentRoomId, target)) {
+    if (areNeighbors(state.theme, state.currentRoomId, target)) {
       state.currentRoomId = target;
       if (!state.visitedRooms.includes(target)) {
         state.visitedRooms.push(target);
@@ -70,7 +73,7 @@ export function applyEffects(state: GameState, effects: DMEffects): void {
 }
 
 export function movePlayer(state: GameState, targetRoomId: string): boolean {
-  if (!areNeighbors(state.currentRoomId, targetRoomId)) {
+  if (!areNeighbors(state.theme, state.currentRoomId, targetRoomId)) {
     return false;
   }
   state.currentRoomId = targetRoomId;
@@ -82,10 +85,11 @@ export function movePlayer(state: GameState, targetRoomId: string): boolean {
 }
 
 function checkEndConditions(state: GameState): void {
+  const theme = getTheme(state.theme);
   if (state.player.hp <= 0) {
     state.status = "lost";
   } else if (
-    state.currentRoomId === GOAL_ROOM &&
+    state.currentRoomId === theme.goalRoom &&
     state.flags.defeatedBoss
   ) {
     state.status = "won";

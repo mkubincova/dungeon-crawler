@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { GameState, DMAction, DungeonMap } from "../../../shared/types.js";
+import type { ThemeId } from "../../../shared/themes/index.js";
 import { submitAction } from "../api.js";
 import { DungeonMapView } from "./DungeonMap.js";
 import { NarrationLog } from "./NarrationLog.js";
@@ -12,6 +13,7 @@ interface Props {
   narration: string;
   actions: DMAction[];
   dungeonMap: DungeonMap;
+  themeId: ThemeId;
   onActionResult: (
     state: GameState,
     narration: string,
@@ -25,6 +27,7 @@ export function GameView({
   narration,
   actions,
   dungeonMap,
+  themeId,
   onActionResult,
   onRestart,
 }: Props) {
@@ -49,12 +52,12 @@ export function GameView({
     <div className="game-view">
       <div className="game-sidebar">
         <PlayerHUD gameState={gameState} />
-        {currentRoom && <CurrentRoomCard room={currentRoom} />}
+        {currentRoom && <CurrentRoomCard room={currentRoom} themeId={themeId} />}
       </div>
       <div className="game-main">
         <div className="game-content">
           <div className="game-map-panel">
-            <DungeonMapView dungeonMap={dungeonMap} gameState={gameState} />
+            <DungeonMapView dungeonMap={dungeonMap} gameState={gameState} themeId={themeId} />
           </div>
           <div className="game-narration-panel">
             <NarrationLog turnLog={gameState.turnLog} currentNarration={narration} />
@@ -65,7 +68,7 @@ export function GameView({
             <h2>{gameState.status === "won" ? "Victory!" : "Defeat..."}</h2>
             <p>
               {gameState.status === "won"
-                ? "You have conquered the dungeon!"
+                ? "You have conquered the challenge!"
                 : "Your adventure has come to an end."}
             </p>
             <button onClick={onRestart}>Play Again</button>

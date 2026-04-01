@@ -5,6 +5,7 @@ import type { GameState } from "../../shared/types.js";
 function makeState(overrides?: Partial<GameState>): GameState {
   return {
     id: "test-id",
+    theme: "dungeon",
     currentRoomId: "entrance",
     player: { name: "Tester", hp: 8, maxHp: 8 },
     inventory: [],

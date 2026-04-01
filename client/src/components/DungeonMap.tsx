@@ -1,24 +1,12 @@
 import type { DungeonMap, GameState } from "../../../shared/types.js";
+import { getTheme, type ThemeId } from "../../../shared/themes/index.js";
 
 interface Props {
   dungeonMap: DungeonMap;
   gameState: GameState;
+  themeId: ThemeId;
 }
 
-// Grid positions (col, row) for each room on a 4x3 grid
-const GRID_POS: Record<string, { col: number; row: number }> = {
-  entrance:          { col: 0, row: 0 },
-  torch_corridor:    { col: 1, row: 0 },
-  puzzle_chamber:    { col: 2, row: 0 },
-  goblin_den:        { col: 0, row: 1 },
-  armory:            { col: 1, row: 1 },
-  underground_river: { col: 2, row: 1 },
-  boss_lair:         { col: 3, row: 1 },
-  treasure_vault:    { col: 3, row: 2 },
-};
-
-const GRID_COLS = 4;
-const GRID_ROWS = 3;
 const CELL = 120;
 const PAD = 36;
 
@@ -30,25 +18,22 @@ export const TAG_COLORS: Record<string, string> = {
   goal:   "#ccaa55",
 };
 
-// Per-room icons for the fixed dungeon layout
-export const ROOM_ICONS: Record<string, string> = {
-  entrance:          "\u{1F6AA}",  // door
-  torch_corridor:    "\u{1F525}",  // fire
-  goblin_den:        "\u{1F47A}",  // goblin
-  puzzle_chamber:    "\u{1F9E9}",  // puzzle piece
-  armory:            "\u{1F6E1}",  // shield
-  underground_river: "\u{1F30A}",  // water wave
-  boss_lair:         "\u{1F432}",  // dragon
-  treasure_vault:    "\u{1F451}",  // crown
-};
+export function getThemeIcons(themeId: ThemeId): Record<string, string> {
+  return getTheme(themeId).icons;
+}
 
-export function DungeonMapView({ dungeonMap, gameState }: Props) {
+export function DungeonMapView({ dungeonMap, gameState, themeId }: Props) {
+  const theme = getTheme(themeId);
+  const gridPositions = theme.gridPositions;
+  const icons = theme.icons;
+  const { cols, rows } = theme.gridSize;
+
   const rooms = Object.values(dungeonMap);
-  const svgW = GRID_COLS * CELL + PAD * 2;
-  const svgH = GRID_ROWS * CELL + PAD * 2;
+  const svgW = cols * CELL + PAD * 2;
+  const svgH = rows * CELL + PAD * 2;
 
   function center(roomId: string): { cx: number; cy: number } | null {
-    const g = GRID_POS[roomId];
+    const g = gridPositions[roomId];
     if (!g) return null;
     return { cx: PAD + g.col * CELL + CELL / 2, cy: PAD + g.row * CELL + CELL / 2 };
   }
@@ -108,7 +93,7 @@ export function DungeonMapView({ dungeonMap, gameState }: Props) {
 
         {/* Room tiles */}
         {rooms.map((room) => {
-          const pos = GRID_POS[room.id];
+          const pos = gridPositions[room.id];
           if (!pos) return null;
           const c = center(room.id)!;
           const isCurrent = room.id === gameState.currentRoomId;
@@ -119,7 +104,7 @@ export function DungeonMapView({ dungeonMap, gameState }: Props) {
               r.neighbors.includes(room.id)
           );
           const color = TAG_COLORS[room.tag] || "#888";
-          const icon = ROOM_ICONS[room.id] || "?";
+          const icon = icons[room.id] || "?";
           const tileSize = 36;
 
           if (!isVisited && !isAdjacent) {

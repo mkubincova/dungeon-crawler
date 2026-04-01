@@ -1,4 +1,5 @@
 import type { DMContext, DMResponse } from "../../shared/types.js";
+import { getRoom } from "./dungeon.js";
 
 // ── AI Interface ──
 
@@ -8,12 +9,10 @@ export interface DungeonMaster {
 }
 
 // ── Mock AI DM ──
-// Provides hand-crafted responses per room type. Swap this with a real LLM later.
+// Provides generic tag-based responses. Works for any theme as a fallback.
 
 export class MockDungeonMaster implements DungeonMaster {
   async enterRoom(ctx: DMContext): Promise<DMResponse> {
-    // The room is always in visitedRooms by the time the AI is called,
-    // so "first visit" means it appears exactly once (just added).
     const visitCount = ctx.visitedRooms.filter((r) => r === ctx.roomId).length;
     const isFirstVisit = visitCount <= 1;
     return getRoomEntry(ctx, isFirstVisit);
@@ -24,380 +23,175 @@ export class MockDungeonMaster implements DungeonMaster {
   }
 }
 
+function getMoveActions(ctx: DMContext): { id: string; label: string }[] {
+  const room = getRoom(ctx.themeId, ctx.roomId);
+  return room.neighbors.map((n) => {
+    const nr = getRoom(ctx.themeId, n);
+    return { id: `move:${nr.id}`, label: `Go to ${nr.name}` };
+  });
+}
+
 function getRoomEntry(ctx: DMContext, firstVisit: boolean): DMResponse {
-  switch (ctx.roomId) {
-    case "entrance":
+  const moves = getMoveActions(ctx);
+
+  if (!firstVisit) {
+    return {
+      narration: `${ctx.playerName} returns to ${ctx.roomName}. ${ctx.roomDescription}`,
+      actions: [...moves, { id: "search_room", label: "Search the area" }],
+    };
+  }
+
+  switch (ctx.roomTag) {
+    case "safe":
       return {
-        narration: firstVisit
-          ? `${ctx.playerName} steps through the crumbling archway into the Entrance Hall. Dust motes dance in the faint light filtering through cracks above. Two passages lead deeper into the dungeon.`
-          : `${ctx.playerName} returns to the Entrance Hall. The familiar crumbling pillars stand silent.`,
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} This area seems relatively safe.`,
+        actions: [...moves, { id: "search_room", label: "Search the area" }],
+      };
+
+    case "danger":
+      return {
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} Danger lurks here!`,
         actions: [
-          { id: "move:torch_corridor", label: "Take the left passage (Torch Corridor)" },
-          { id: "move:goblin_den", label: "Take the right passage (Goblin Den)" },
-          { id: "look_around", label: "Search the entrance hall" },
+          { id: "face_danger", label: "Face the danger head-on" },
+          { id: "sneak_past", label: "Try to sneak through" },
+          ...moves,
         ],
       };
 
-    case "torch_corridor":
+    case "puzzle":
       return {
-        narration: firstVisit
-          ? `The Torch Corridor stretches ahead, lined with sputtering torches. ${ctx.playerName} spots pressure plates on the floor and tiny dart holes in the walls. One wrong step could be painful.`
-          : `The Torch Corridor is still treacherous. Spent darts litter the floor, but more traps surely remain.`,
-        actions: [
-          { id: "move:entrance", label: "Go back to the Entrance Hall" },
-          { id: "dash_through", label: "Sprint through the corridor" },
-          { id: "careful_advance", label: "Carefully pick your way through" },
-        ],
-      };
-
-    case "goblin_den":
-      return {
-        narration: firstVisit
-          ? `${ctx.playerName} enters a foul-smelling cave. Three goblins snarl and brandish crude weapons! "Intruder!" one shrieks.`
-          : `The Goblin Den is quiet now, littered with the aftermath of the earlier skirmish.`,
-        actions: firstVisit
-          ? [
-              { id: "fight_goblins", label: "Draw your weapon and fight!" },
-              { id: "sneak_past", label: "Try to sneak past the goblins" },
-              { id: "move:entrance", label: "Retreat to the Entrance Hall" },
-            ]
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} A puzzle blocks the way forward.`,
+        actions: ctx.flags.solvedPuzzle
+          ? moves
           : [
-              { id: "move:entrance", label: "Go to the Entrance Hall" },
-              { id: "move:armory", label: "Head to the Armory" },
-              { id: "search_den", label: "Search the goblin den" },
+              { id: "solve_puzzle", label: "Attempt the puzzle" },
+              ...moves,
             ],
       };
 
-    case "puzzle_chamber":
-      if (ctx.flags.solvedPuzzle) {
-        return {
-          narration: `The Puzzle Chamber's runes glow with a steady green light. The central mechanism stands open, its puzzle already solved.`,
-          actions: [
-            { id: "move:torch_corridor", label: "Go back to the Torch Corridor" },
-            { id: "move:underground_river", label: "Descend to the Underground River" },
-            { id: "move:boss_lair", label: "Enter the Boss Lair" },
-          ],
-        };
-      }
-      return {
-        narration: `${ctx.playerName} enters a circular chamber covered in glowing runes. In the center, a stone mechanism with three rotating rings awaits. The symbols on the rings seem to tell a story of elements: fire, water, and earth.`,
-        actions: [
-          { id: "solve_puzzle", label: "Attempt to solve the rune puzzle" },
-          { id: "move:torch_corridor", label: "Go back to the Torch Corridor" },
-          ...(ctx.inventory.includes("rune_fragment")
-            ? [{ id: "use_rune_fragment", label: "Use the rune fragment on the mechanism" }]
-            : []),
-        ],
-      };
-
-    case "armory":
-      return {
-        narration: `Rows of weapon racks line the walls, most empty or holding only rust. ${
-          !ctx.inventory.includes("iron_shield")
-            ? "One sturdy iron shield catches your eye."
-            : "You've already claimed the best gear here."
-        }`,
-        actions: [
-          ...(!ctx.inventory.includes("iron_shield")
-            ? [{ id: "take_shield", label: "Take the iron shield" }]
-            : []),
-          ...(!ctx.inventory.includes("healing_potion")
-            ? [{ id: "search_armory", label: "Search the shelves for supplies" }]
-            : []),
-          { id: "move:goblin_den", label: "Go to the Goblin Den" },
-          { id: "move:underground_river", label: "Head to the Underground River" },
-        ],
-      };
-
-    case "underground_river":
-      return {
-        narration: `A roaring underground river cuts through the cavern. The current is fierce and the rocks are slippery. ${
-          ctx.inventory.includes("iron_shield")
-            ? "Your shield could help brace against the current."
-            : "Crossing without protection looks dangerous."
-        }`,
-        actions: [
-          { id: "cross_river", label: "Attempt to cross the river" },
-          { id: "move:armory", label: "Go to the Armory" },
-          { id: "move:puzzle_chamber", label: "Go to the Puzzle Chamber" },
-          { id: "move:boss_lair", label: "Follow the cavern to the Boss Lair" },
-        ],
-      };
-
-    case "boss_lair":
+    case "boss":
       if (ctx.flags.defeatedBoss) {
         return {
-          narration: `The Boss Lair is quiet. The shadow dragon lies defeated, its dark essence dissipating. The path to the Treasure Vault stands open.`,
-          actions: [
-            { id: "move:treasure_vault", label: "Enter the Treasure Vault" },
-            { id: "move:puzzle_chamber", label: "Go back to the Puzzle Chamber" },
-            { id: "move:underground_river", label: "Go to the Underground River" },
-          ],
+          narration: `${ctx.roomName} is quiet now. The threat has been dealt with.`,
+          actions: moves,
         };
       }
       return {
-        narration: `${ctx.playerName} enters a vast chamber with scorched walls. A massive SHADOW DRAGON unfurls its wings and fixes its burning eyes upon you! "You dare enter my domain, mortal?"`,
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} A powerful enemy bars the way!`,
         actions: [
-          { id: "fight_boss", label: "Fight the Shadow Dragon!" },
-          { id: "talk_boss", label: "Try to reason with the dragon" },
-          { id: "move:puzzle_chamber", label: "Flee to the Puzzle Chamber" },
-          { id: "move:underground_river", label: "Flee to the Underground River" },
+          { id: "fight_boss", label: "Fight!" },
+          { id: "talk_boss", label: "Try to negotiate" },
+          ...moves,
         ],
         effects: { setFlags: { metBoss: true } },
       };
 
-    case "treasure_vault":
+    case "goal":
       return {
-        narration: `Golden light fills ${ctx.playerName}'s vision. Mountains of coins, gems, and ancient artifacts surround you. At the center, on a marble pedestal, rests the legendary Crown of Ages. You have conquered the dungeon!`,
-        actions: [
-          { id: "claim_crown", label: "Claim the Crown of Ages" },
-        ],
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} Victory is within reach!`,
+        actions: [{ id: "claim_prize", label: "Claim your reward!" }],
       };
 
     default:
       return {
-        narration: `${ctx.playerName} finds themselves in an unfamiliar place.`,
-        actions: [{ id: "look_around", label: "Look around" }],
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription}`,
+        actions: [...moves, { id: "search_room", label: "Look around" }],
       };
   }
 }
 
 function getActionOutcome(ctx: DMContext, actionId: string): DMResponse {
-  // Movement actions
+  const moves = getMoveActions(ctx);
+
   if (actionId.startsWith("move:")) {
-    const targetRoom = actionId.slice(5);
     return {
       narration: `${ctx.playerName} moves onward...`,
       actions: [],
-      effects: { moveToRoom: targetRoom },
+      effects: { moveToRoom: actionId.slice(5) },
     };
   }
 
   switch (actionId) {
-    // Entrance
-    case "look_around":
-      return {
-        narration: `${ctx.playerName} searches the area carefully. Among the rubble, you find a faintly glowing rune fragment!`,
-        actions: [
-          { id: "move:torch_corridor", label: "Take the left passage" },
-          { id: "move:goblin_den", label: "Take the right passage" },
-        ],
-        effects: { addItems: ["rune_fragment"] },
-      };
-
-    // Torch Corridor
-    case "dash_through":
-      return {
-        narration: `${ctx.playerName} sprints down the corridor! Darts whistle past — one catches your shoulder, another grazes your leg. You stumble into the Puzzle Chamber, bleeding.`,
-        actions: [],
-        effects: { hpChange: -2, moveToRoom: "puzzle_chamber" },
-      };
-
-    case "careful_advance":
-      if (Math.random() > 0.5) {
+    case "search_room":
+      if (ctx.roomTag === "safe" && !ctx.inventory.includes("healing_potion")) {
         return {
-          narration: `${ctx.playerName} moves slowly, testing each stone before stepping. You spot a pressure plate just in time and step over it. Safe — for now.`,
-          actions: [
-            { id: "move:puzzle_chamber", label: "Continue to the Puzzle Chamber" },
-          ],
+          narration: `${ctx.playerName} searches carefully and finds a small healing potion hidden away.`,
+          actions: moves,
+          effects: { addItems: ["healing_potion"] },
         };
       }
       return {
-        narration: `${ctx.playerName} carefully picks a path through the corridor, but a hidden plate clicks underfoot. A volley of darts slams into you!`,
-        actions: [
-          { id: "move:puzzle_chamber", label: "Push on to the Puzzle Chamber" },
-          { id: "move:entrance", label: "Stagger back to the Entrance" },
-        ],
-        effects: { hpChange: -1 },
+        narration: `${ctx.playerName} searches the area but finds nothing of interest.`,
+        actions: moves,
       };
 
-    // Goblin Den
-    case "fight_goblins":
+    case "face_danger":
       return {
-        narration: `${ctx.playerName} charges into battle! The goblins swarm you — one slashes your arm, another bites your leg. You cut them down, but you're badly wounded.`,
-        actions: [
-          { id: "move:entrance", label: "Return to the Entrance" },
-          { id: "move:armory", label: "Proceed to the Armory" },
-          { id: "search_den", label: "Search the goblin den" },
-        ],
-        effects: { hpChange: -4 },
+        narration: `${ctx.playerName} confronts the danger! It's a tough fight but you push through, battered and bruised.`,
+        actions: moves,
+        effects: { hpChange: -3 },
       };
 
     case "sneak_past":
       if (Math.random() > 0.5) {
         return {
-          narration: `${ctx.playerName} moves like a shadow, slipping past the distracted goblins undetected. You reach the far passage safely.`,
-          actions: [
-            { id: "move:armory", label: "Continue to the Armory" },
-            { id: "move:entrance", label: "Sneak back to the Entrance" },
-          ],
+          narration: `${ctx.playerName} moves quietly and slips through undetected. Lucky!`,
+          actions: moves,
         };
       }
       return {
-        narration: `A goblin spots you! "THERE!" They swarm you with crude daggers. You fight them off, but take serious hits.`,
-        actions: [
-          { id: "move:armory", label: "Push through to the Armory" },
-          { id: "move:entrance", label: "Retreat to the Entrance" },
-        ],
-        effects: { hpChange: -3 },
+        narration: `${ctx.playerName} is spotted! A brief, painful scuffle follows.`,
+        actions: moves,
+        effects: { hpChange: -2 },
       };
 
-    case "search_den":
-      return {
-        narration: `Rummaging through the goblin hoard, you find a small healing potion tucked behind a pile of bones.`,
-        actions: [
-          { id: "move:entrance", label: "Go to the Entrance" },
-          { id: "move:armory", label: "Go to the Armory" },
-        ],
-        effects: { addItems: ["healing_potion"] },
-      };
-
-    // Puzzle Chamber
     case "solve_puzzle":
-      if (ctx.inventory.includes("rune_fragment")) {
-        return {
-          narration: `Using the rune fragment as a guide, ${ctx.playerName} aligns the rings: fire-water-earth. The mechanism clicks, runes flash green, and new passages reveal themselves!`,
-          actions: [
-            { id: "move:underground_river", label: "Descend to the Underground River" },
-            { id: "move:boss_lair", label: "Enter the Boss Lair" },
-            { id: "move:torch_corridor", label: "Go back" },
-          ],
-          effects: { setFlags: { solvedPuzzle: true, doorUnlocked: true } },
-        };
-      }
       return {
-        narration: `${ctx.playerName} studies the rings but the symbols are too cryptic. Perhaps there's a clue elsewhere in the dungeon...`,
-        actions: [
-          { id: "move:torch_corridor", label: "Go back to search for clues" },
-        ],
+        narration: `${ctx.playerName} studies the puzzle carefully and solves it! New paths open up.`,
+        actions: moves,
+        effects: { setFlags: { solvedPuzzle: true, doorUnlocked: true } },
       };
 
-    case "use_rune_fragment":
-      return {
-        narration: `The rune fragment fits perfectly into a slot on the mechanism! The rings spin on their own, aligning with a satisfying click. The puzzle is solved!`,
-        actions: [
-          { id: "move:underground_river", label: "Descend to the Underground River" },
-          { id: "move:boss_lair", label: "Enter the Boss Lair" },
-        ],
-        effects: {
-          setFlags: { solvedPuzzle: true, doorUnlocked: true },
-          removeItems: ["rune_fragment"],
-        },
-      };
-
-    // Armory
-    case "take_shield":
-      return {
-        narration: `${ctx.playerName} lifts the iron shield. It's heavy but solid — this will come in handy.`,
-        actions: [
-          { id: "move:goblin_den", label: "Go to the Goblin Den" },
-          { id: "move:underground_river", label: "Head to the Underground River" },
-        ],
-        effects: { addItems: ["iron_shield"] },
-      };
-
-    case "search_armory":
-      return {
-        narration: `Behind a collapsed shelf, you discover a dusty healing potion. Still good!`,
-        actions: [
-          { id: "move:goblin_den", label: "Go to the Goblin Den" },
-          { id: "move:underground_river", label: "Head to the Underground River" },
-        ],
-        effects: { addItems: ["healing_potion"] },
-      };
-
-    // Underground River
-    case "cross_river":
-      if (ctx.inventory.includes("iron_shield")) {
-        return {
-          narration: `Using the iron shield to brace against the current, ${ctx.playerName} wades across the river safely. Well done!`,
-          actions: [
-            { id: "move:boss_lair", label: "Head to the Boss Lair" },
-            { id: "move:puzzle_chamber", label: "Go to the Puzzle Chamber" },
-          ],
-        };
-      }
-      return {
-        narration: `${ctx.playerName} plunges into the icy current. The river slams you against jagged rocks — you nearly drown before dragging yourself to the far bank, gasping and bleeding.`,
-        actions: [
-          { id: "move:boss_lair", label: "Head to the Boss Lair" },
-          { id: "move:puzzle_chamber", label: "Go to the Puzzle Chamber" },
-        ],
-        effects: { hpChange: -4 },
-      };
-
-    // Boss Lair
     case "fight_boss":
-      if (ctx.inventory.includes("iron_shield") && ctx.playerHp > 4) {
+      if (ctx.playerHp > 4) {
         return {
-          narration: `An epic battle ensues! ${ctx.playerName} dodges jets of shadow flame, shield raised against the darkness. The dragon's claws tear through your defenses, but you land a devastating blow. The creature roars and dissolves into shadow. Victory — but at a cost.`,
-          actions: [
-            { id: "move:treasure_vault", label: "Enter the Treasure Vault!" },
-          ],
+          narration: `An epic battle! ${ctx.playerName} takes heavy damage but emerges victorious!`,
+          actions: moves,
           effects: { hpChange: -4, setFlags: { defeatedBoss: true } },
         };
       }
-      if (ctx.playerHp > 6) {
-        return {
-          narration: `${ctx.playerName} fights the Shadow Dragon without protection! Its claws and shadow fire ravage you. Through sheer will, you land a killing blow — but you can barely stand.`,
-          actions: [
-            { id: "move:treasure_vault", label: "Enter the Treasure Vault!" },
-          ],
-          effects: { hpChange: -6, setFlags: { defeatedBoss: true } },
-        };
-      }
       return {
-        narration: `${ctx.playerName} fights valiantly but the Shadow Dragon is too powerful! Its shadow breath engulfs you...`,
+        narration: `${ctx.playerName} fights valiantly but is overwhelmed...`,
         actions: [],
         effects: { hpChange: -ctx.playerHp },
       };
 
     case "talk_boss":
-      return {
-        narration: `"Brave mortal," the dragon rumbles. "Few dare speak instead of strike. I will give you one chance. Bring me proof of wisdom — solve the ancient puzzle — and I may let you pass." ${
-          ctx.flags.solvedPuzzle
-            ? 'You show the dragon evidence of the solved puzzle. "Impressive... You have earned passage, mortal." The dragon steps aside.'
-            : "You have no proof to offer. The dragon growls impatiently."
-        }`,
-        actions: ctx.flags.solvedPuzzle
-          ? [
-              { id: "move:treasure_vault", label: "Enter the Treasure Vault!" },
-            ]
-          : [
-              { id: "fight_boss", label: "Fight the dragon" },
-              { id: "move:puzzle_chamber", label: "Flee to solve the puzzle first" },
-            ],
-        effects: ctx.flags.solvedPuzzle
-          ? { setFlags: { defeatedBoss: true } }
-          : undefined,
-      };
-
-    // Treasure Vault (win)
-    case "claim_crown":
-      return {
-        narration: `${ctx.playerName} lifts the Crown of Ages from its pedestal. A warm golden light fills the chamber. The dungeon trembles as ancient magic acknowledges its new master. YOU WIN! The dungeon's secrets are yours, brave adventurer!`,
-        actions: [],
-        effects: { addItems: ["crown_of_ages"] },
-      };
-
-    // Healing potion (generic)
-    case "use_healing_potion":
-      if (ctx.inventory.includes("healing_potion")) {
+      if (ctx.flags.solvedPuzzle) {
         return {
-          narration: `${ctx.playerName} drinks the healing potion. A warm sensation spreads through your body as wounds close.`,
-          actions: [],
-          effects: { hpChange: 4, removeItems: ["healing_potion"] },
+          narration: `Your intelligence is recognized. The guardian steps aside, impressed by your wisdom.`,
+          actions: moves,
+          effects: { setFlags: { defeatedBoss: true } },
         };
       }
       return {
-        narration: `You don't have a healing potion!`,
+        narration: `Negotiation fails. The enemy grows impatient. You must fight or flee!`,
+        actions: [
+          { id: "fight_boss", label: "Fight!" },
+          ...moves,
+        ],
+      };
+
+    case "claim_prize":
+      return {
+        narration: `${ctx.playerName} claims the prize! A warm light fills the room. You have won!`,
         actions: [],
       };
 
     default:
       return {
-        narration: `${ctx.playerName} considers their options...`,
-        actions: [{ id: "look_around", label: "Look around" }],
+        narration: `${ctx.playerName} considers the situation...`,
+        actions: moves,
       };
   }
 }

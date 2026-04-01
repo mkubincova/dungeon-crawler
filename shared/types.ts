@@ -28,6 +28,7 @@ export interface GameFlags {
 
 export interface GameState {
   id: string;
+  theme: string;
   currentRoomId: string;
   player: Player;
   inventory: string[];
@@ -46,6 +47,7 @@ export interface TurnLogEntry {
 // ── AI DM Communication ──
 
 export interface DMContext {
+  themeId: string;
   roomId: string;
   roomTag: Room["tag"];
   roomName: string;
@@ -82,6 +84,7 @@ export interface DMEffects {
 
 export interface StartGameRequest {
   playerName: string;
+  theme?: string;
 }
 
 export interface StartGameResponse {

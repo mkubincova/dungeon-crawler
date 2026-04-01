@@ -8,7 +8,7 @@ import type {
   DMAction,
 } from "../../shared/types.js";
 import { createGame, getGame, applyEffects, movePlayer } from "./game.js";
-import { getRoom, DUNGEON } from "./dungeon.js";
+import { getRoom, getDungeon } from "./dungeon.js";
 import { MockDungeonMaster, type DungeonMaster } from "./ai.js";
 import { LLMDungeonMaster } from "./llm-dm.js";
 import { isLLMConfigured } from "./config.js";
@@ -24,8 +24,9 @@ function buildContext(
   state: ReturnType<typeof getGame>,
   note: string
 ): DMContext {
-  const room = getRoom(state!.currentRoomId);
+  const room = getRoom(state!.theme, state!.currentRoomId);
   return {
+    themeId: state!.theme,
     roomId: room.id,
     roomTag: room.tag,
     roomName: room.name,
@@ -42,10 +43,10 @@ function buildContext(
 
 // POST /api/game/start
 router.post("/game/start", async (req: Request, res: Response) => {
-  const { playerName } = req.body as StartGameRequest;
-  const state = createGame(playerName);
+  const { playerName, theme } = req.body as StartGameRequest;
+  const state = createGame(playerName, theme || "dungeon");
 
-  const ctx = buildContext(state, "The player has just entered the dungeon.");
+  const ctx = buildContext(state, "The player has just entered the area.");
   const dmResponse = await dm.enterRoom(ctx);
 
   state.turnLog.push({
@@ -57,7 +58,6 @@ router.post("/game/start", async (req: Request, res: Response) => {
     applyEffects(state, dmResponse.effects);
   }
 
-  // Add healing potion action if player has one
   const actions = sanitizeActions(dmResponse.actions, state.inventory);
 
   const response: StartGameResponse = {
@@ -86,7 +86,7 @@ router.post("/game/action", async (req: Request, res: Response) => {
   // Handle movement actions
   if (actionId.startsWith("move:")) {
     const targetRoom = actionId.slice(5);
-    const room = getRoom(state.currentRoomId);
+    const room = getRoom(state.theme, state.currentRoomId);
     if (!room.neighbors.includes(targetRoom)) {
       res.status(400).json({ error: "Cannot move to that room" });
       return;
@@ -129,7 +129,7 @@ router.post("/game/action", async (req: Request, res: Response) => {
     }
     applyEffects(state, { hpChange: 2, removeItems: ["healing_potion"] });
 
-    const narration = `${state.player.name} drinks the healing potion. It's old and weak, but takes the edge off. (+2 HP)`;
+    const narration = `${state.player.name} uses the healing potion. It takes the edge off. (+2 HP)`;
     state.turnLog.push({ roomId: state.currentRoomId, narration, chosenAction: actionId });
 
     // Re-enter the current room to get fresh actions
@@ -200,8 +200,9 @@ router.get("/game/:id", (req: Request<{ id: string }>, res: Response) => {
 });
 
 // GET /api/dungeon - return map for visualization
-router.get("/dungeon", (_req: Request, res: Response) => {
-  res.json(DUNGEON);
+router.get("/dungeon", (req: Request, res: Response) => {
+  const theme = (req.query.theme as string) || "dungeon";
+  res.json(getDungeon(theme));
 });
 
 export function sanitizeActions(

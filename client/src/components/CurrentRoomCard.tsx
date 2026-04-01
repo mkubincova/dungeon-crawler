@@ -1,8 +1,10 @@
 import type { Room } from "../../../shared/types.js";
-import { TAG_COLORS, ROOM_ICONS } from "./DungeonMap.js";
+import type { ThemeId } from "../../../shared/themes/index.js";
+import { TAG_COLORS, getThemeIcons } from "./DungeonMap.js";
 
 interface Props {
   room: Room;
+  themeId: ThemeId;
 }
 
 const TAG_LABELS: Record<string, string> = {
@@ -13,9 +15,10 @@ const TAG_LABELS: Record<string, string> = {
   goal:   "Goal",
 };
 
-export function CurrentRoomCard({ room }: Props) {
+export function CurrentRoomCard({ room, themeId }: Props) {
   const color = TAG_COLORS[room.tag] || "#888";
-  const icon = ROOM_ICONS[room.id] || "?";
+  const icons = getThemeIcons(themeId);
+  const icon = icons[room.id] || "?";
   const tagLabel = TAG_LABELS[room.tag] || room.tag;
 
   return (
