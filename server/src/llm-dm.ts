@@ -122,6 +122,7 @@ async function callLLM(
       messages,
       temperature: 0.8,
       max_tokens: 512,
+      response_format: { type: "json_object" },
     }),
   });
 
@@ -138,7 +139,30 @@ async function callLLM(
     .replace(/\s*```$/i, "")
     .trim();
 
-  const parsed = JSON.parse(cleaned) as DMResponse;
+  let parsed: DMResponse;
+  try {
+    parsed = JSON.parse(cleaned) as DMResponse;
+  } catch (originalError) {
+    // Common LLM error: extra closing brace splits the object, e.g.
+    // {"narration":"...","actions":[...]},"effects":{}}
+    // Try removing one `}` at a time from different positions
+    let repaired: DMResponse | undefined;
+    for (let i = cleaned.length - 1; i >= 0; i--) {
+      if (cleaned[i] !== "}") continue;
+      const candidate = cleaned.slice(0, i) + cleaned.slice(i + 1);
+      try {
+        repaired = JSON.parse(candidate) as DMResponse;
+        break;
+      } catch {
+        // try next position
+      }
+    }
+    if (repaired) {
+      parsed = repaired;
+    } else {
+      throw originalError;
+    }
+  }
 
   if (typeof parsed.narration !== "string" || !Array.isArray(parsed.actions)) {
     throw new Error("LLM response missing required fields (narration, actions)");
