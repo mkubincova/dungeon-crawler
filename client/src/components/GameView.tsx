@@ -17,6 +17,8 @@ interface Props {
   myPlayerId: string | null;
   activePlayerId: string | null;
   turnDeadline: number | null;
+  loading: boolean;
+  onLoading: (loading: boolean) => void;
   onRestart: () => void;
 }
 
@@ -29,6 +31,8 @@ export function GameView({
   myPlayerId,
   activePlayerId,
   turnDeadline,
+  loading,
+  onLoading,
   onRestart,
 }: Props) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -55,6 +59,8 @@ export function GameView({
   }, [turnDeadline, isMyTurn]);
 
   function handleAction(actionId: string) {
+    if (loading) return;
+    onLoading(true);
     socket.emit("game:action", { actionId });
   }
 
@@ -77,11 +83,15 @@ export function GameView({
       <div className="game-main">
         {/* Turn indicator */}
         {!isGameOver && (
-          <div className={`turn-indicator ${isMyTurn ? "my-turn" : "waiting"}`}>
+          <div className={`turn-indicator ${isMyTurn ? (loading ? "my-turn processing" : "my-turn") : "waiting"}`}>
             {isMyTurn ? (
-              <span>
-                Your turn!{timeLeft !== null ? ` (${timeLeft}s)` : ""}
-              </span>
+              loading ? (
+                <span>Fate is being written...</span>
+              ) : (
+                <span>
+                  Your turn!{timeLeft !== null ? ` (${timeLeft}s)` : ""}
+                </span>
+              )
             ) : (
               <span>
                 Waiting for {activePlayer?.name ?? "..."}...
@@ -117,11 +127,22 @@ export function GameView({
             </p>
             <button onClick={onRestart}>Return to Lobby</button>
           </div>
+        ) : isMyTurn && loading ? (
+          <div className="dm-loading-panel">
+            <div className="dm-loading-runes">
+              <span className="rune">&#x16A0;</span>
+              <span className="rune">&#x16B1;</span>
+              <span className="rune">&#x16C7;</span>
+              <span className="rune">&#x16A8;</span>
+              <span className="rune">&#x16BE;</span>
+            </div>
+            <p className="dm-loading-text">The Dungeon Master deliberates...</p>
+          </div>
         ) : isMyTurn ? (
           <ActionPanel
             actions={actions}
             onAction={handleAction}
-            disabled={false}
+            disabled={loading}
           />
         ) : (
           <div className="waiting-panel">

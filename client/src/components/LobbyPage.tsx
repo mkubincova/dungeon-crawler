@@ -6,11 +6,13 @@ import { socket } from "../socket.js";
 interface Props {
   lobby: Lobby | null;
   myPlayerId: string | null;
+  loading: boolean;
+  onLoading: (loading: boolean) => void;
 }
 
 type Mode = "landing" | "create" | "join" | "waiting";
 
-export function LobbyPage({ lobby, myPlayerId }: Props) {
+export function LobbyPage({ lobby, myPlayerId, loading, onLoading }: Props) {
   const [mode, setMode] = useState<Mode>(lobby ? "waiting" : "landing");
   const [playerName, setPlayerName] = useState("");
   const [roomCode, setRoomCode] = useState("");
@@ -44,6 +46,8 @@ export function LobbyPage({ lobby, myPlayerId }: Props) {
   }
 
   function handleStart() {
+    if (loading) return;
+    onLoading(true);
     socket.emit("lobby:start");
   }
 
@@ -212,10 +216,17 @@ export function LobbyPage({ lobby, myPlayerId }: Props) {
           {isHost && (
             <button
               onClick={handleStart}
-              disabled={!allReady}
-              className="btn-start"
+              disabled={!allReady || loading}
+              className={`btn-start ${loading ? "btn-loading" : ""}`}
             >
-              Start Game
+              {loading ? (
+                <span className="btn-loading-content">
+                  <span className="btn-spinner" />
+                  Summoning the Dungeon Master...
+                </span>
+              ) : (
+                "Start Game"
+              )}
             </button>
           )}
         </div>

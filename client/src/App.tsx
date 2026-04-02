@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type {
   GameState,
   DMAction,
@@ -27,6 +27,9 @@ export default function App() {
   const [scores, setScores] = useState<ScoreEntry[] | null>(null);
   const [dungeonMap, setDungeonMap] = useState<DungeonMap | null>(null);
   const [themeId, setThemeId] = useState<ThemeId>("dungeon");
+  const [loading, setLoading] = useState(false);
+  const myPlayerIdRef = useRef(myPlayerId);
+  myPlayerIdRef.current = myPlayerId;
 
   useEffect(() => {
     socket.on("lobby:created", ({ lobby, playerId }) => {
@@ -49,6 +52,7 @@ export default function App() {
       setMyPlayerId(playerId);
       setThemeId(gameState.theme as ThemeId);
       setPhase("game");
+      setLoading(false);
       fetchDungeonMap(gameState.theme)
         .then(setDungeonMap)
         .catch(console.error);
@@ -57,6 +61,7 @@ export default function App() {
     socket.on("game:turn", ({ activePlayerId, deadline, actions }) => {
       setActivePlayerId(activePlayerId);
       setTurnDeadline(deadline);
+      setLoading(false);
       if (actions.length > 0) {
         setActions(actions);
       }
@@ -65,13 +70,22 @@ export default function App() {
     socket.on("game:update", ({ gameState, narration }) => {
       setGameState(gameState);
       setNarration(narration);
-      // Clear actions when it's no longer our turn (active player changed)
-      setActivePlayerId(gameState.turnOrder[gameState.currentTurnIndex]);
+      const nextActiveId = gameState.turnOrder[gameState.currentTurnIndex];
+      setActivePlayerId(nextActiveId);
+      // Clear stale actions/deadline so old UI doesn't flash
+      setActions([]);
+      setTurnDeadline(null);
+      // If it's no longer our turn, clear loading (we won't receive game:turn).
+      // If it IS our turn, keep loading — game:turn arrives next with new actions.
+      if (nextActiveId !== myPlayerIdRef.current) {
+        setLoading(false);
+      }
     });
 
     socket.on("game:ended", ({ gameState, scores }) => {
       setGameState(gameState);
       setScores(scores);
+      setLoading(false);
       setPhase("scoreboard");
     });
 
@@ -98,10 +112,11 @@ export default function App() {
     setTurnDeadline(null);
     setScores(null);
     setDungeonMap(null);
+    setLoading(false);
   }
 
   if (phase === "lobby") {
-    return <LobbyPage lobby={lobby} myPlayerId={myPlayerId} />;
+    return <LobbyPage lobby={lobby} myPlayerId={myPlayerId} loading={loading} onLoading={setLoading} />;
   }
 
   if (phase === "scoreboard" && scores && gameState) {
@@ -126,10 +141,12 @@ export default function App() {
         myPlayerId={myPlayerId}
         activePlayerId={activePlayerId}
         turnDeadline={turnDeadline}
+        loading={loading}
+        onLoading={setLoading}
         onRestart={handleRestart}
       />
     );
   }
 
-  return <LobbyPage lobby={lobby} myPlayerId={myPlayerId} />;
+  return <LobbyPage lobby={lobby} myPlayerId={myPlayerId} loading={loading} onLoading={setLoading} />;
 }

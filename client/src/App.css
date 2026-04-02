@@ -1342,6 +1342,22 @@ body::before {
   display: inline-block;
 }
 
+/* Typing cursor */
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  background: var(--gold);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: cursorBlink 0.8s steps(2) infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 /* ══════════════════════════════════════
    Action Panel
    ══════════════════════════════════════ */
@@ -1446,6 +1462,144 @@ body::before {
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
+}
+
+/* ══════════════════════════════════════
+   DM Loading Panel (action processing)
+   ══════════════════════════════════════ */
+.dm-loading-panel {
+  border-top: 2px solid var(--border-dark);
+  padding: 1.6rem 1.5rem 1.4rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(212,168,71,0.06) 0%, transparent 70%),
+    linear-gradient(0deg, var(--bg-stone) 0%, var(--bg-panel) 100%);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  overflow: hidden;
+}
+
+.dm-loading-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+  animation: loadingEdgePulse 2s ease-in-out infinite;
+}
+
+@keyframes loadingEdgePulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.dm-loading-runes {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.dm-loading-runes .rune {
+  font-size: 1.1rem;
+  color: var(--gold-dim);
+  text-shadow: 0 0 8px rgba(212,168,71,0.2);
+  animation: runeFlicker 2.4s ease-in-out infinite;
+  opacity: 0.3;
+}
+
+.dm-loading-runes .rune:nth-child(1) { animation-delay: 0s; }
+.dm-loading-runes .rune:nth-child(2) { animation-delay: 0.35s; }
+.dm-loading-runes .rune:nth-child(3) { animation-delay: 0.7s; }
+.dm-loading-runes .rune:nth-child(4) { animation-delay: 1.05s; }
+.dm-loading-runes .rune:nth-child(5) { animation-delay: 1.4s; }
+
+@keyframes runeFlicker {
+  0%, 100% {
+    opacity: 0.2;
+    color: var(--gold-dim);
+    text-shadow: 0 0 4px rgba(212,168,71,0.1);
+  }
+  50% {
+    opacity: 1;
+    color: var(--gold-bright);
+    text-shadow:
+      0 0 12px rgba(212,168,71,0.5),
+      0 0 24px rgba(212,168,71,0.2);
+  }
+}
+
+.dm-loading-text {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  animation: dmTextPulse 3s ease-in-out infinite;
+}
+
+@keyframes dmTextPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; color: var(--gold); }
+}
+
+/* Turn indicator processing state */
+.turn-indicator.processing {
+  background: linear-gradient(90deg, rgba(212,168,71,0.08), rgba(212,168,71,0.04), rgba(212,168,71,0.08));
+  color: var(--gold-dim);
+  border-bottom-color: rgba(212,168,71,0.15);
+  animation: turnProcessPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes turnProcessPulse {
+  0%, 100% { background: linear-gradient(90deg, rgba(212,168,71,0.08), rgba(212,168,71,0.04), rgba(212,168,71,0.08)); }
+  50% { background: linear-gradient(90deg, rgba(212,168,71,0.14), rgba(212,168,71,0.08), rgba(212,168,71,0.14)); }
+}
+
+/* ══════════════════════════════════════
+   Lobby Loading (Start Game)
+   ══════════════════════════════════════ */
+.btn-loading-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(212,168,71,0.2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spinRune 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spinRune {
+  to { transform: rotate(360deg); }
+}
+
+.btn-start.btn-loading {
+  pointer-events: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-start.btn-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(212,168,71,0.08),
+    transparent
+  );
+  animation: shimmer 2s ease-in-out infinite;
 }
 
 /* ══════════════════════════════════════
