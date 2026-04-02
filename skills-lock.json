@@ -1,6 +1,21 @@
 {
   "version": 1,
   "skills": {
+    "rpi-implement": {
+      "source": "git@gitlab.maibornwolff.de:agentic-coding-school/research-plan-implement-skills.git",
+      "sourceType": "git",
+      "computedHash": "7655f1786a280ad7ce0c7ab79ba40ac6ff787f99379b1de0e689e21b4d3d7097"
+    },
+    "rpi-plan": {
+      "source": "git@gitlab.maibornwolff.de:agentic-coding-school/research-plan-implement-skills.git",
+      "sourceType": "git",
+      "computedHash": "f9ece1c74bc689bc0f28c1021367316a0d51f54efd473fb15651e61fc02d2352"
+    },
+    "rpi-research": {
+      "source": "git@gitlab.maibornwolff.de:agentic-coding-school/research-plan-implement-skills.git",
+      "sourceType": "git",
+      "computedHash": "d03be6f4ee155acd2a13c8b517f180e087f58af7c3e9d94db0cd381d554f8583"
+    },
     "skill-creator": {
       "source": "anthropics/claude-plugins-official",
       "sourceType": "github",
