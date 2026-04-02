@@ -31,12 +31,20 @@ function getMoveActions(ctx: DMContext): { id: string; label: string }[] {
   });
 }
 
+function othersPresent(ctx: DMContext): string {
+  if (ctx.playersInSameRoom.length === 0) return "";
+  if (ctx.playersInSameRoom.length === 1)
+    return ` ${ctx.playersInSameRoom[0]} is also here.`;
+  return ` ${ctx.playersInSameRoom.join(" and ")} are also here.`;
+}
+
 function getRoomEntry(ctx: DMContext, firstVisit: boolean): DMResponse {
   const moves = getMoveActions(ctx);
+  const others = othersPresent(ctx);
 
   if (!firstVisit) {
     return {
-      narration: `${ctx.playerName} returns to ${ctx.roomName}. ${ctx.roomDescription}`,
+      narration: `${ctx.playerName} returns to ${ctx.roomName}. ${ctx.roomDescription}${others}`,
       actions: [...moves, { id: "search_room", label: "Search the area" }],
     };
   }
@@ -44,13 +52,13 @@ function getRoomEntry(ctx: DMContext, firstVisit: boolean): DMResponse {
   switch (ctx.roomTag) {
     case "safe":
       return {
-        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} This area seems relatively safe.`,
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} This area seems relatively safe.${others}`,
         actions: [...moves, { id: "search_room", label: "Search the area" }],
       };
 
     case "danger":
       return {
-        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} Danger lurks here!`,
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} Danger lurks here!${others}`,
         actions: [
           { id: "face_danger", label: "Face the danger head-on" },
           { id: "sneak_past", label: "Try to sneak through" },
@@ -60,24 +68,21 @@ function getRoomEntry(ctx: DMContext, firstVisit: boolean): DMResponse {
 
     case "puzzle":
       return {
-        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} A puzzle blocks the way forward.`,
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} A puzzle blocks the way forward.${others}`,
         actions: ctx.flags.solvedPuzzle
           ? moves
-          : [
-              { id: "solve_puzzle", label: "Attempt the puzzle" },
-              ...moves,
-            ],
+          : [{ id: "solve_puzzle", label: "Attempt the puzzle" }, ...moves],
       };
 
     case "boss":
       if (ctx.flags.defeatedBoss) {
         return {
-          narration: `${ctx.roomName} is quiet now. The threat has been dealt with.`,
+          narration: `${ctx.roomName} is quiet now. The threat has been dealt with.${others}`,
           actions: moves,
         };
       }
       return {
-        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} A powerful enemy bars the way!`,
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} A powerful enemy bars the way!${others}`,
         actions: [
           { id: "fight_boss", label: "Fight!" },
           { id: "talk_boss", label: "Try to negotiate" },
@@ -88,13 +93,13 @@ function getRoomEntry(ctx: DMContext, firstVisit: boolean): DMResponse {
 
     case "goal":
       return {
-        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} Victory is within reach!`,
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription} Victory is within reach!${others}`,
         actions: [{ id: "claim_prize", label: "Claim your reward!" }],
       };
 
     default:
       return {
-        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription}`,
+        narration: `${ctx.playerName} enters ${ctx.roomName}. ${ctx.roomDescription}${others}`,
         actions: [...moves, { id: "search_room", label: "Look around" }],
       };
   }
@@ -102,6 +107,7 @@ function getRoomEntry(ctx: DMContext, firstVisit: boolean): DMResponse {
 
 function getActionOutcome(ctx: DMContext, actionId: string): DMResponse {
   const moves = getMoveActions(ctx);
+  const hasOthers = ctx.playersInSameRoom.length > 0;
 
   if (actionId.startsWith("move:")) {
     return {
@@ -125,12 +131,16 @@ function getActionOutcome(ctx: DMContext, actionId: string): DMResponse {
         actions: moves,
       };
 
-    case "face_danger":
+    case "face_danger": {
+      const sharedNote = hasOthers
+        ? ` The explosion catches everyone in the room — ${ctx.playersInSameRoom.join(", ")} take damage too!`
+        : "";
       return {
-        narration: `${ctx.playerName} confronts the danger! It's a tough fight but you push through, battered and bruised.`,
+        narration: `${ctx.playerName} confronts the danger! It's a tough fight but you push through, battered and bruised.${sharedNote}`,
         actions: moves,
         effects: { hpChange: -3 },
       };
+    }
 
     case "sneak_past":
       if (Math.random() > 0.5) {
@@ -176,10 +186,7 @@ function getActionOutcome(ctx: DMContext, actionId: string): DMResponse {
       }
       return {
         narration: `Negotiation fails. The enemy grows impatient. You must fight or flee!`,
-        actions: [
-          { id: "fight_boss", label: "Fight!" },
-          ...moves,
-        ],
+        actions: [{ id: "fight_boss", label: "Fight!" }, ...moves],
       };
 
     case "claim_prize":

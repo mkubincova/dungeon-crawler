@@ -37,6 +37,12 @@ This adventure is DANGEROUS.
 - Healing is extremely rare (+1 at most)
 - Danger rooms should almost always cost HP
 
+=== MULTIPLAYER ===
+Multiple players explore the dungeon simultaneously. You are narrating for the ACTIVE player only.
+- Reference other players in the same room by name if present
+- Shared consequences: traps and combat in a room affect all present players. Describe this.
+- Do NOT narrate actions for other players — only describe their presence
+
 === CRITICAL RULES — READ CAREFULLY ===
 1. NEVER offer "take", "pick up", or "grab" actions for items. If the player discovers an item, put it in "addItems" in effects and describe taking it in the narration. One step, no separate action.
 2. NEVER offer actions for items already in the player's inventory. Check the Inventory list in the user message — if an item is there, do not mention taking it again.
@@ -74,6 +80,17 @@ function buildUserMessage(ctx: DMContext, actionId?: string): string {
     `Context: ${ctx.note}`,
   ];
 
+  if (ctx.playersInSameRoom.length > 0) {
+    parts.push(`Other players in this room: ${ctx.playersInSameRoom.join(", ")}`);
+  }
+
+  if (ctx.allPlayers.length > 1) {
+    const playerSummary = ctx.allPlayers
+      .map((p) => `${p.name} (HP: ${p.hp}/${p.maxHp}, room: ${p.currentRoomId}, ${p.status})`)
+      .join("; ");
+    parts.push(`All players: ${playerSummary}`);
+  }
+
   if (actionId) {
     parts.push(`Player chose action: "${actionId}"`);
   }
@@ -87,7 +104,9 @@ function buildUserMessage(ctx: DMContext, actionId?: string): string {
   return parts.join("\n");
 }
 
-async function callLLM(messages: Array<{ role: string; content: string }>): Promise<DMResponse> {
+async function callLLM(
+  messages: Array<{ role: string; content: string }>
+): Promise<DMResponse> {
   const { apiKey, baseUrl, model } = config.llm;
 
   const url = baseUrl.replace(/\/+$/, "") + "/chat/completions";
@@ -114,12 +133,13 @@ async function callLLM(messages: Array<{ role: string; content: string }>): Prom
   const data = await res.json();
   const content: string = data.choices?.[0]?.message?.content ?? "";
 
-  // Strip markdown fences if the model wraps its response
-  const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  const cleaned = content
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
 
   const parsed = JSON.parse(cleaned) as DMResponse;
 
-  // Validate required fields
   if (typeof parsed.narration !== "string" || !Array.isArray(parsed.actions)) {
     throw new Error("LLM response missing required fields (narration, actions)");
   }
@@ -131,10 +151,7 @@ export class LLMDungeonMaster implements DungeonMaster {
   async enterRoom(ctx: DMContext): Promise<DMResponse> {
     const messages = [
       { role: "system", content: buildSystemPrompt(ctx.themeId) },
-      {
-        role: "user",
-        content: buildUserMessage(ctx),
-      },
+      { role: "user", content: buildUserMessage(ctx) },
     ];
     return callLLM(messages);
   }
@@ -142,10 +159,7 @@ export class LLMDungeonMaster implements DungeonMaster {
   async handleAction(ctx: DMContext, actionId: string): Promise<DMResponse> {
     const messages = [
       { role: "system", content: buildSystemPrompt(ctx.themeId) },
-      {
-        role: "user",
-        content: buildUserMessage(ctx, actionId),
-      },
+      { role: "user", content: buildUserMessage(ctx, actionId) },
     ];
     return callLLM(messages);
   }
